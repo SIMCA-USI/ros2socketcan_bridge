@@ -56,7 +56,7 @@ class ros2socketcan : public rclcpp::Node
         rclcpp::Publisher<can_msgs::msg::Frame>::SharedPtr publisher_;
         rclcpp::Publisher<can_msgs::msg::Frame>::SharedPtr test_pub_;
         rclcpp::Subscription<can_msgs::msg::Frame>::SharedPtr subscription_;
-        
+       
         can_msgs::msg::Frame current_frame;
         
         /**

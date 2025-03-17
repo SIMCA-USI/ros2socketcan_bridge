@@ -29,10 +29,11 @@ colcon build --packages-select ros2socketcan_bridge
 The ros2 CAN bridge can be run using the command:
 
 ```
-ros2 run ros2socketcan_bridge ros2socketcan
+ros2 launch ros2socketcan_bridge can.launch.py
+
 ```
 
-By default, it will start the CAN Bridge with the CAN socket "can0".
+By default, it will start the CAN Bridge with the CAN socket "can0" and can1.
 
 <ins>Note:</ins> This ROS 2 node is meant to be used on a Linux machine and may not work with other operating systems!
 

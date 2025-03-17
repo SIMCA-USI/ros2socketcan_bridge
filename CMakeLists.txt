@@ -30,6 +30,12 @@ ament_target_dependencies(ros2socketcan rclcpp std_msgs can_msgs)
 
 install(TARGETS ros2socketcan
   DESTINATION lib/${PROJECT_NAME})
+  
+# Install launch files.
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

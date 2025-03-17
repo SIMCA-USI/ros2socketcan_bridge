@@ -11,8 +11,9 @@ using std::placeholders::_3;
 
 ros2socketcan::ros2socketcan() : Node("ros2socketcan"), stream(ios), signals(ios, SIGINT, SIGTERM)
 {
-    this->declare_parameter("CAN_INTERFACE", "can0");
-    std::string can_socket = this->get_parameter("CAN_INTERFACE").as_string();
+    
+    std::string can_socket = this->declare_parameter<std::string>("can_interface", "can0");
+    
 
     RCLCPP_INFO(this->get_logger(), "CAN_INTERFACE: %s", can_socket.c_str());
     topicname_receive << "CAN/" << can_socket << "/"
@@ -142,7 +143,10 @@ void ros2socketcan::CanListener(struct can_frame &rec_frame, boost::asio::posix:
         s << std::to_string(rec_frame.data[j]) << " ";
     }
     s << std::endl;
+    
+    
     RCLCPP_INFO(this->get_logger(), s.str().c_str());
+    
     publisher_->publish(frame);
 
     stream.async_read_some(boost::asio::buffer(&rec_frame, sizeof(rec_frame)), std::bind(&ros2socketcan::CanListener, this, std::ref(rec_frame), std::ref(stream)));
