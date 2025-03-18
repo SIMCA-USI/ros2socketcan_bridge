@@ -4,6 +4,9 @@
 
 // Import header file
 #include "ros2socketcan.h"
+#include "rclcpp/logging.hpp"
+#include "rcutils/logging.h"
+
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -11,20 +14,30 @@ using std::placeholders::_3;
 
 ros2socketcan::ros2socketcan() : Node("ros2socketcan"), stream(ios), signals(ios, SIGINT, SIGTERM)
 {
-    
     std::string can_socket = this->declare_parameter<std::string>("can_interface", "can0");
+
+    // Obtener el nivel de log desde los parámetros (por defecto INFO)
+    log_level_ = this->declare_parameter<int>("log_level", RCUTILS_LOG_SEVERITY_INFO);
     
+
+    // Establecer el nivel de log
+    rcutils_ret_t ret = rcutils_logging_set_logger_level(this->get_logger().get_name(), log_level_);
+    
+    if (ret != RCUTILS_RET_OK) {
+        RCLCPP_ERROR(this->get_logger(), "Error setting logger level!");
+    }
 
     RCLCPP_INFO(this->get_logger(), "CAN_INTERFACE: %s", can_socket.c_str());
-    topicname_receive << "CAN/" << can_socket << "/"
-                      << "receive";
-    topicname_transmit << "CAN/" << can_socket << "/"
-                       << "transmit";
+
+    
+    topicname_receive << "CAN/" << can_socket << "/receive";
+    topicname_transmit << "CAN/" << can_socket << "/transmit";
 
     rclcpp::executors::MultiThreadedExecutor exec;
-
+    
     publisher_ = this->create_publisher<can_msgs::msg::Frame>(topicname_receive.str(), 10);
-    subscription_ = this->create_subscription<can_msgs::msg::Frame>(topicname_transmit.str(), 100, std::bind(&ros2socketcan::CanPublisher, this, _1));
+    subscription_ = this->create_subscription<can_msgs::msg::Frame>(
+        topicname_transmit.str(), 100, std::bind(&ros2socketcan::CanPublisher, this, _1));
 
     strcpy(ifr.ifr_name, can_socket.c_str());
     ioctl(natsock, SIOCGIFINDEX, &ifr);
@@ -39,16 +52,18 @@ ros2socketcan::ros2socketcan() : Node("ros2socketcan"), stream(ios), signals(ios
 
     stream.assign(natsock);
 
-    RCLCPP_INFO(this->get_logger(), (std::string("ROS 2 to CAN-Bus topic:") + subscription_->get_topic_name()).c_str());
-    RCLCPP_INFO(this->get_logger(), (std::string("CAN-Bus to ROS 2 topic:") + publisher_->get_topic_name()).c_str());
+    RCLCPP_INFO(this->get_logger(), "ROS 2 to CAN-Bus topic: %s", subscription_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "CAN-Bus to ROS 2 topic: %s", publisher_->get_topic_name());
 
-    stream.async_read_some(boost::asio::buffer(&rec_frame, sizeof(rec_frame)), std::bind(&ros2socketcan::CanListener, this, std::ref(rec_frame), std::ref(stream)));
+    stream.async_read_some(boost::asio::buffer(&rec_frame, sizeof(rec_frame)),
+                           std::bind(&ros2socketcan::CanListener, this, std::ref(rec_frame), std::ref(stream)));
     signals.async_wait(std::bind(&ros2socketcan::stop, this));
 
     std::size_t (boost::asio::io_service::*run)() = &boost::asio::io_service::run;
     std::thread bt(std::bind(run, &ios));
-    RCLCPP_DEBUG(this->get_logger(),"Thread started");
+    RCLCPP_DEBUG(this->get_logger(), "Thread started");
     bt.detach();
+
 }
 void ros2socketcan::stop()
 {
@@ -96,7 +111,7 @@ void ros2socketcan::CanSend(const can_msgs::msg::Frame msg)
         out << std::to_string(frame1.data[j]) << std::string(" ");
     }
     out << std::endl;
-    RCLCPP_INFO(this->get_logger(), out.str().c_str());
+    RCLCPP_DEBUG(this->get_logger(), out.str().c_str());
     stream.async_write_some(boost::asio::buffer(&frame1, sizeof(frame1)), std::bind(&ros2socketcan::CanSendConfirm, this));
 }
 
@@ -145,7 +160,9 @@ void ros2socketcan::CanListener(struct can_frame &rec_frame, boost::asio::posix:
     s << std::endl;
     
     
-    RCLCPP_INFO(this->get_logger(), s.str().c_str());
+    RCLCPP_DEBUG(this->get_logger(), s.str().c_str());
+    
+    RCLCPP_INFO(this->get_logger(), "Log level set to: %d", log_level_);
     
     publisher_->publish(frame);
 
